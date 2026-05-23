@@ -1,0 +1,65 @@
+{
+  "name": "n8n-nodes-pictify",
+  "version": "0.1.0",
+  "description": "n8n community node for Pictify — generate images, GIFs, and PDFs from HTML templates",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "pictify",
+    "image-generation",
+    "html-to-image",
+    "og-image",
+    "social-cards",
+    "gif",
+    "pdf"
+  ],
+  "license": "MIT",
+  "homepage": "https://pictify.io",
+  "author": {
+    "name": "Pictify",
+    "email": "support@pictify.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pictify-io/n8n-nodes-pictify.git"
+  },
+  "engines": {
+    "node": ">=18.10",
+    "pnpm": ">=9.1"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "npx rimraf dist && tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build && npm run lint -s"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/PictifyApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Pictify/Pictify.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/parser": "~7.15.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "*",
+    "prettier": "^3.3.2",
+    "rimraf": "^5.0.7",
+    "typescript": "^5.5.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
