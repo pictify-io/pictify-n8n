@@ -34,6 +34,7 @@ export class Pictify implements INodeType {
 			baseURL: '={{$credentials.baseUrl}}',
 			headers: {
 				'Content-Type': 'application/json',
+				'User-Agent': 'n8n-nodes-pictify/0.1.0',
 			},
 		},
 		properties: [
@@ -608,6 +609,9 @@ export class Pictify implements INodeType {
 					method,
 					url: endpoint,
 					json: true,
+					headers: {
+						'User-Agent': 'n8n-nodes-pictify/0.1.0',
+					},
 				};
 				if (method !== 'GET') {
 					requestOptions.body = body;
