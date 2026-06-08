@@ -38,6 +38,7 @@ export class PictifyApi implements ICredentialType {
 		properties: {
 			headers: {
 				Authorization: '=Bearer {{$credentials.apiKey}}',
+				'User-Agent': 'n8n-nodes-pictify/1.0.0',
 			},
 		},
 	};

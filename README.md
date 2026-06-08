@@ -35,21 +35,21 @@ The credential is validated by calling `GET /templates` on save.
 
 ### Image
 
-- **Render From Template** — render a saved template with variables (e.g. OG cards, social posts)
-- **Render From HTML** — render raw HTML + CSS into an image
-- **Render Batch** — render up to 500 variants from one template in a single call
+- **Render From Template** — render a saved template with variables (e.g. OG cards, social posts). Supports `layout`/`layouts` variants and `quality` (0.1–1.0).
+- **Render From HTML** — render raw HTML into an image. Style it with inline CSS or a `<style>` block (the image endpoint takes HTML only). Supports `selector` to crop to an element.
+- **Render Batch** — submit an async batch render of one template across many variable sets (max 100). Returns a batch ID immediately; rendered URLs are delivered via the `render.completed` webhook (not in the node output).
 
 ### GIF
 
-- **Render GIF** — render an animated GIF from a template (frames as variable sets) or from HTML
+- **Render GIF** — render an animated GIF from a template (+ variables) or from HTML. The source must animate (CSS animation / motion); a static source cannot be rendered as a GIF. Quality is a `low` / `medium` / `high` preset.
 
 ### PDF
 
-- **Render PDF** — render a PDF from a template or HTML, with page format and margin controls
+- **Render PDF** — render a PDF from a saved template by passing variables (uses the template render endpoint with `format: pdf`).
 
 ### Template
 
-- **Get** — fetch one template (returns variables it accepts)
+- **Get** — fetch one template (returns the variables it accepts)
 - **List** — list all templates on your account
 
 Every operation supports the standard n8n options:
@@ -65,7 +65,7 @@ Every operation supports the standard n8n options:
 
 **2. Email a personalised certificate as PDF**
 
-`Webhook → Pictify (Render PDF, Return Binary) → Gmail/Send Email` — take a name/course from a form submission, render a certificate PDF, attach to email.
+`Webhook → Pictify (Render PDF, Return Binary) → Gmail/Send Email` — take a name/course from a form submission, render a certificate PDF from a template, attach to email.
 
 **3. Animated product GIF for Slack alerts**
 
@@ -73,7 +73,7 @@ Every operation supports the standard n8n options:
 
 **4. Bulk social-card generation**
 
-`Google Sheets → Pictify (Render Batch)` — render hundreds of social cards in one node execution.
+`Google Sheets → Pictify (Render Batch)` — submit up to 100 social-card variants from one template in a single async job (URLs arrive via webhook).
 
 ## Resources
 
@@ -83,14 +83,15 @@ Every operation supports the standard n8n options:
 
 ## Version history
 
-### 0.1.0 — Initial release
+### 1.0.0
 
-- Image rendering from template, HTML, and batch
-- Animated GIF rendering
-- PDF rendering
-- Template list / get
-- Binary download support
-- Layout variants
+- Re-pointed every operation to the live Pictify API (`/image`, `/templates/:uid/render`, `/templates/:uid/batch-render`, `/gif`, `/templates`).
+- Image rendering from template (with `layout`/`layouts`, `quality` 0.1–1.0) and from HTML (`selector`, inline CSS).
+- Async batch rendering (max 100 variable sets) — returns a batch ID; URLs arrive via webhook.
+- Animated GIF rendering from template or HTML with `low`/`medium`/`high` quality.
+- PDF rendering from a template (`format: pdf`).
+- Template list / get.
+- Binary download support.
 
 ## License
 

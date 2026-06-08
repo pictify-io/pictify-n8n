@@ -34,7 +34,7 @@ export class Pictify implements INodeType {
 			baseURL: '={{$credentials.baseUrl}}',
 			headers: {
 				'Content-Type': 'application/json',
-				'User-Agent': 'n8n-nodes-pictify/0.1.0',
+				'User-Agent': 'n8n-nodes-pictify/1.0.0',
 			},
 		},
 		properties: [
@@ -70,13 +70,14 @@ export class Pictify implements INodeType {
 						name: 'Render From HTML',
 						value: 'renderHtml',
 						action: 'Render an image from raw HTML',
-						description: 'Generate an image from raw HTML and optional CSS',
+						description: 'Generate an image from raw HTML (use inline CSS or a style block)',
 					},
 					{
 						name: 'Render Batch',
 						value: 'renderBatch',
 						action: 'Render many images from one template',
-						description: 'Render up to 500 images from a single template in one call',
+						description:
+							'Submit an async batch render of one template across many variable sets (max 100). Returns a batch ID; rendered URLs are delivered via webhook.',
 					},
 				],
 				default: 'renderTemplate',
@@ -94,7 +95,7 @@ export class Pictify implements INodeType {
 						name: 'Render GIF',
 						value: 'renderGif',
 						action: 'Render an animated GIF',
-						description: 'Render an animated GIF from a template or raw HTML with frames',
+						description: 'Render an animated GIF from a template or raw HTML (source must animate)',
 					},
 				],
 				default: 'renderGif',
@@ -112,7 +113,7 @@ export class Pictify implements INodeType {
 						name: 'Render PDF',
 						value: 'renderPdf',
 						action: 'Render a PDF document',
-						description: 'Render a single-page or multi-page PDF from a template or HTML',
+						description: 'Render a PDF from a saved template by passing variables',
 					},
 				],
 				default: 'renderPdf',
@@ -149,8 +150,8 @@ export class Pictify implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
-				placeholder: 'tpl_123abc',
-				description: 'ID of the Pictify template to render',
+				placeholder: 'XL13XACH2V',
+				description: 'UID of the Pictify template to render',
 				displayOptions: {
 					show: {
 						resource: ['image', 'template'],
@@ -179,18 +180,7 @@ export class Pictify implements INodeType {
 				typeOptions: { rows: 8 },
 				default: '',
 				required: true,
-				description: 'Raw HTML to render',
-				displayOptions: {
-					show: { resource: ['image'], operation: ['renderHtml'] },
-				},
-			},
-			{
-				displayName: 'CSS',
-				name: 'css',
-				type: 'string',
-				typeOptions: { rows: 4 },
-				default: '',
-				description: 'Optional CSS to apply to the HTML',
+				description: 'Raw HTML to render. Style it with inline CSS or a &lt;style&gt; block — the image endpoint takes HTML only (no separate CSS field).',
 				displayOptions: {
 					show: { resource: ['image'], operation: ['renderHtml'] },
 				},
@@ -201,24 +191,24 @@ export class Pictify implements INodeType {
 				displayName: 'Items',
 				name: 'items',
 				type: 'json',
-				default: '[\n  { "variables": { "title": "Hello" } }\n]',
+				default: '[\n  { "variables": { "name": "Ada", "company": "Pictify" } }\n]',
 				required: true,
 				description:
-					'Array of items to render. Each item has `variables` (object) and optional `filename`.',
+					'Array of items to render (max 100). Each item has a `variables` object that is mapped to one variable set.',
 				displayOptions: {
 					show: { resource: ['image'], operation: ['renderBatch'] },
 				},
 			},
 
-			// ============ COMMON IMAGE OPTIONS ============
+			// ============ IMAGE: Render From HTML — options ============
 			{
 				displayName: 'Output Options',
-				name: 'imageOptions',
+				name: 'imageHtmlOptions',
 				type: 'collection',
 				placeholder: 'Add option',
 				default: {},
 				displayOptions: {
-					show: { resource: ['image'], operation: ['renderTemplate', 'renderHtml', 'renderBatch'] },
+					show: { resource: ['image'], operation: ['renderHtml'] },
 				},
 				options: [
 					{
@@ -230,50 +220,23 @@ export class Pictify implements INodeType {
 						displayOptions: { show: { returnBinary: [true] } },
 					},
 					{
-						displayName: 'Device Scale Factor',
-						name: 'deviceScaleFactor',
-						type: 'number',
-						default: 1,
-						description: 'Multiplier for retina-quality output (1-3 typical)',
-					},
-					{
 						displayName: 'Format',
 						name: 'format',
 						type: 'options',
 						options: [
+							{ name: 'JPEG', value: 'jpeg' },
 							{ name: 'JPG', value: 'jpg' },
 							{ name: 'PNG', value: 'png' },
 							{ name: 'WebP', value: 'webp' },
 						],
 						default: 'png',
+						description: 'Output image format (sent as fileExtension)',
 					},
 					{
 						displayName: 'Height',
 						name: 'height',
 						type: 'number',
-						default: 630,
-					},
-					{
-						displayName: 'Layout',
-						name: 'layout',
-						type: 'string',
-						default: '',
-						description: 'Optional layout variant name (e.g. "landscape", "story")',
-					},
-					{
-						displayName: 'Layouts',
-						name: 'layouts',
-						type: 'string',
-						default: '',
-						placeholder: 'landscape,square,story',
-						description: 'Comma-separated layout variant names to render in one call',
-					},
-					{
-						displayName: 'Quality',
-						name: 'quality',
-						type: 'number',
-						default: 90,
-						description: 'JPG/WebP quality 1-100',
+						default: 720,
 					},
 					{
 						displayName: 'Return Binary',
@@ -284,17 +247,155 @@ export class Pictify implements INodeType {
 							'Whether to download the rendered image and return it as a binary property on the item',
 					},
 					{
-						displayName: 'Transparent Background',
-						name: 'transparent',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to keep the background transparent (PNG only)',
+						displayName: 'Selector',
+						name: 'selector',
+						type: 'string',
+						default: '',
+						description: 'CSS selector to crop the screenshot to a specific element',
 					},
 					{
 						displayName: 'Width',
 						name: 'width',
 						type: 'number',
-						default: 1200,
+						default: 1280,
+					},
+				],
+			},
+
+			// ============ IMAGE: Render From Template — options ============
+			{
+				displayName: 'Output Options',
+				name: 'imageTemplateOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
+				displayOptions: {
+					show: { resource: ['image'], operation: ['renderTemplate'] },
+				},
+				options: [
+					{
+						displayName: 'Binary Property Name',
+						name: 'binaryPropertyName',
+						type: 'string',
+						default: 'data',
+						description: 'Name of the binary property to attach the rendered image to',
+						displayOptions: { show: { returnBinary: [true] } },
+					},
+					{
+						displayName: 'Format',
+						name: 'format',
+						type: 'options',
+						options: [
+							{ name: 'JPEG', value: 'jpeg' },
+							{ name: 'JPG', value: 'jpg' },
+							{ name: 'PNG', value: 'png' },
+							{ name: 'WebP', value: 'webp' },
+						],
+						default: 'png',
+					},
+					{
+						displayName: 'Height',
+						name: 'height',
+						type: 'number',
+						default: 0,
+						description: 'Output height in pixels (10–4096). Leave 0 to use the template default.',
+					},
+					{
+						displayName: 'Layout',
+						name: 'layout',
+						type: 'string',
+						default: '',
+						description: 'Optional single layout variant name (e.g. "square", "story")',
+					},
+					{
+						displayName: 'Layouts',
+						name: 'layouts',
+						type: 'string',
+						default: '',
+						placeholder: 'default,square,story',
+						description:
+							'Comma-separated layout variant names to render in one call (max 20). Use "default" for the base layout.',
+					},
+					{
+						displayName: 'Quality',
+						name: 'quality',
+						type: 'number',
+						typeOptions: { minValue: 0.1, maxValue: 1, numberPrecision: 2 },
+						default: 0.9,
+						description: 'Render quality for raster/JPEG output (0.1–1.0)',
+					},
+					{
+						displayName: 'Return Binary',
+						name: 'returnBinary',
+						type: 'boolean',
+						default: false,
+						description:
+							'Whether to download the rendered image and return it as a binary property on the item',
+					},
+					{
+						displayName: 'Width',
+						name: 'width',
+						type: 'number',
+						default: 0,
+						description: 'Output width in pixels (10–4096). Leave 0 to use the template default.',
+					},
+				],
+			},
+
+			// ============ IMAGE: Render Batch — options ============
+			{
+				displayName: 'Output Options',
+				name: 'imageBatchOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
+				displayOptions: {
+					show: { resource: ['image'], operation: ['renderBatch'] },
+				},
+				options: [
+					{
+						displayName: 'Concurrency',
+						name: 'concurrency',
+						type: 'number',
+						typeOptions: { minValue: 1, maxValue: 10 },
+						default: 5,
+						description: 'Maximum parallel renders (1–10)',
+					},
+					{
+						displayName: 'Format',
+						name: 'format',
+						type: 'options',
+						options: [
+							{ name: 'JPEG', value: 'jpeg' },
+							{ name: 'JPG', value: 'jpg' },
+							{ name: 'PNG', value: 'png' },
+							{ name: 'WebP', value: 'webp' },
+						],
+						default: 'png',
+					},
+					{
+						displayName: 'Layout',
+						name: 'layout',
+						type: 'string',
+						default: '',
+						description: 'Optional single layout variant name applied to every item',
+					},
+					{
+						displayName: 'Layouts',
+						name: 'layouts',
+						type: 'string',
+						default: '',
+						placeholder: 'default,square,story',
+						description:
+							'Comma-separated layout variant names applied to every item (max 20)',
+					},
+					{
+						displayName: 'Quality',
+						name: 'quality',
+						type: 'number',
+						typeOptions: { minValue: 0.1, maxValue: 1, numberPrecision: 2 },
+						default: 0.9,
+						description: 'Render quality for raster/JPEG output (0.1–1.0)',
 					},
 				],
 			},
@@ -308,7 +409,9 @@ export class Pictify implements INodeType {
 					{ name: 'Template', value: 'template' },
 					{ name: 'HTML', value: 'html' },
 				],
-				default: 'template',
+				default: 'html',
+				description:
+					'The source must contain a CSS animation (or other motion); a static source cannot be rendered as a GIF',
 				displayOptions: { show: { resource: ['gif'], operation: ['renderGif'] } },
 			},
 			{
@@ -317,6 +420,17 @@ export class Pictify implements INodeType {
 				type: 'string',
 				default: '',
 				required: true,
+				placeholder: 'XL13XACH2V',
+				displayOptions: {
+					show: { resource: ['gif'], operation: ['renderGif'], gifSource: ['template'] },
+				},
+			},
+			{
+				displayName: 'Variables',
+				name: 'gifVariables',
+				type: 'json',
+				default: '{}',
+				description: 'JSON object of variables to inject into the template',
 				displayOptions: {
 					show: { resource: ['gif'], operation: ['renderGif'], gifSource: ['template'] },
 				},
@@ -328,29 +442,10 @@ export class Pictify implements INodeType {
 				typeOptions: { rows: 6 },
 				default: '',
 				required: true,
+				description: 'Raw HTML to animate into a GIF. Include the CSS animation inline or in a &lt;style&gt; block.',
 				displayOptions: {
 					show: { resource: ['gif'], operation: ['renderGif'], gifSource: ['html'] },
 				},
-			},
-			{
-				displayName: 'CSS',
-				name: 'gifCss',
-				type: 'string',
-				typeOptions: { rows: 4 },
-				default: '',
-				displayOptions: {
-					show: { resource: ['gif'], operation: ['renderGif'], gifSource: ['html'] },
-				},
-			},
-			{
-				displayName: 'Frames',
-				name: 'frames',
-				type: 'json',
-				default:
-					'[\n  { "variables": { "text": "Frame 1" } },\n  { "variables": { "text": "Frame 2" } }\n]',
-				required: true,
-				description: 'Array of frame objects. Each frame has a `variables` object.',
-				displayOptions: { show: { resource: ['gif'], operation: ['renderGif'] } },
 			},
 			{
 				displayName: 'GIF Options',
@@ -361,50 +456,49 @@ export class Pictify implements INodeType {
 				displayOptions: { show: { resource: ['gif'], operation: ['renderGif'] } },
 				options: [
 					{
-						displayName: 'Delay (Ms)',
-						name: 'delay',
-						type: 'number',
-						default: 100,
-						description: 'Delay between frames in milliseconds',
+						displayName: 'Binary Property Name',
+						name: 'binaryPropertyName',
+						type: 'string',
+						default: 'data',
+						description: 'Name of the binary property to attach the rendered GIF to',
+						displayOptions: { show: { returnBinary: [true] } },
 					},
 					{ displayName: 'Height', name: 'height', type: 'number', default: 600 },
 					{
-						displayName: 'Loop',
-						name: 'loop',
-						type: 'number',
-						default: 0,
-						description: '0 = infinite loop, otherwise number of loops',
-					},
-					{
 						displayName: 'Quality',
 						name: 'quality',
-						type: 'number',
-						default: 80,
+						type: 'options',
+						options: [
+							{ name: 'Low', value: 'low' },
+							{ name: 'Medium', value: 'medium' },
+							{ name: 'High', value: 'high' },
+						],
+						default: 'medium',
+						description: 'GIF quality preset',
+					},
+					{
+						displayName: 'Return Binary',
+						name: 'returnBinary',
+						type: 'boolean',
+						default: false,
+						description:
+							'Whether to download the rendered GIF and return it as a binary property on the item',
 					},
 					{ displayName: 'Width', name: 'width', type: 'number', default: 800 },
 				],
 			},
 
-			// ============ PDF FIELDS ============
-			{
-				displayName: 'Source',
-				name: 'pdfSource',
-				type: 'options',
-				options: [
-					{ name: 'Template', value: 'template' },
-					{ name: 'HTML', value: 'html' },
-				],
-				default: 'template',
-				displayOptions: { show: { resource: ['pdf'], operation: ['renderPdf'] } },
-			},
+			// ============ PDF FIELDS (template-only) ============
 			{
 				displayName: 'Template ID',
 				name: 'pdfTemplateId',
 				type: 'string',
 				default: '',
 				required: true,
+				placeholder: 'XL13XACH2V',
+				description: 'UID of the Pictify template to render as a PDF',
 				displayOptions: {
-					show: { resource: ['pdf'], operation: ['renderPdf'], pdfSource: ['template'] },
+					show: { resource: ['pdf'], operation: ['renderPdf'] },
 				},
 			},
 			{
@@ -412,19 +506,9 @@ export class Pictify implements INodeType {
 				name: 'pdfVariables',
 				type: 'json',
 				default: '{}',
+				description: 'JSON object of variables to inject into the template',
 				displayOptions: {
-					show: { resource: ['pdf'], operation: ['renderPdf'], pdfSource: ['template'] },
-				},
-			},
-			{
-				displayName: 'HTML',
-				name: 'pdfHtml',
-				type: 'string',
-				typeOptions: { rows: 8 },
-				default: '',
-				required: true,
-				displayOptions: {
-					show: { resource: ['pdf'], operation: ['renderPdf'], pdfSource: ['html'] },
+					show: { resource: ['pdf'], operation: ['renderPdf'] },
 				},
 			},
 			{
@@ -440,44 +524,30 @@ export class Pictify implements INodeType {
 						name: 'binaryPropertyName',
 						type: 'string',
 						default: 'data',
+						description: 'Name of the binary property to attach the rendered PDF to',
 						displayOptions: { show: { returnBinary: [true] } },
 					},
 					{
-						displayName: 'Landscape',
-						name: 'landscape',
-						type: 'boolean',
-						default: false,
-					},
-					{
-						displayName: 'Margin (CSS)',
-						name: 'margin',
-						type: 'string',
-						default: '0',
-						description: 'CSS margin string (e.g. "1cm" or "10px 20px")',
-					},
-					{
-						displayName: 'Page Format',
-						name: 'pageFormat',
-						type: 'options',
-						options: [
-							{ name: 'A4', value: 'A4' },
-							{ name: 'Legal', value: 'Legal' },
-							{ name: 'Letter', value: 'Letter' },
-							{ name: 'Tabloid', value: 'Tabloid' },
-						],
-						default: 'A4',
-					},
-					{
-						displayName: 'Print Background',
-						name: 'printBackground',
-						type: 'boolean',
-						default: true,
+						displayName: 'Height',
+						name: 'height',
+						type: 'number',
+						default: 0,
+						description: 'Output height in pixels. Leave 0 to use the template default.',
 					},
 					{
 						displayName: 'Return Binary',
 						name: 'returnBinary',
 						type: 'boolean',
 						default: false,
+						description:
+							'Whether to download the rendered PDF and return it as a binary property on the item',
+					},
+					{
+						displayName: 'Width',
+						name: 'width',
+						type: 'number',
+						default: 0,
+						description: 'Output width in pixels. Leave 0 to use the template default.',
 					},
 				],
 			},
@@ -501,97 +571,121 @@ export class Pictify implements INodeType {
 				let binaryProp = 'data';
 
 				if (resource === 'image') {
-					const opts = (this.getNodeParameter('imageOptions', i, {}) as IDataObject) ?? {};
-					wantsBinary = Boolean(opts.returnBinary);
-					binaryProp = (opts.binaryPropertyName as string) || 'data';
-
-					const common: IDataObject = {
-						format: opts.format ?? 'png',
-					};
-					if (opts.width !== undefined) common.width = opts.width;
-					if (opts.height !== undefined) common.height = opts.height;
-					if (opts.deviceScaleFactor !== undefined)
-						common.deviceScaleFactor = opts.deviceScaleFactor;
-					if (opts.transparent !== undefined) common.transparent = opts.transparent;
-					if (opts.quality !== undefined) common.quality = opts.quality;
-					if (opts.layout) common.layout = opts.layout;
-					if (opts.layouts) {
-						common.layouts = String(opts.layouts)
-							.split(',')
-							.map((s) => s.trim())
-							.filter(Boolean);
-					}
-
 					if (operation === 'renderTemplate') {
-						endpoint = '/render';
-						body.templateId = this.getNodeParameter('templateId', i) as string;
+						// POST /templates/:uid/render — body: { variables, format, quality, width, height, layout, layouts }
+						const opts =
+							(this.getNodeParameter('imageTemplateOptions', i, {}) as IDataObject) ?? {};
+						wantsBinary = Boolean(opts.returnBinary);
+						binaryProp = (opts.binaryPropertyName as string) || 'data';
+
+						endpoint = `/templates/${encodeURIComponent(
+							this.getNodeParameter('templateId', i) as string,
+						)}/render`;
 						body.variables = parseJson(
 							this.getNodeParameter('variables', i, {}),
 							'variables',
 							this.getNode(),
 						) as IDataObject;
-						Object.assign(body, common);
+						body.format = (opts.format as string) ?? 'png';
+						if (opts.quality !== undefined) body.quality = opts.quality;
+						if (isPositive(opts.width)) body.width = opts.width;
+						if (isPositive(opts.height)) body.height = opts.height;
+						if (opts.layout) body.layout = opts.layout;
+						const layouts = splitCsv(opts.layouts);
+						if (layouts.length) body.layouts = layouts;
 					} else if (operation === 'renderHtml') {
-						endpoint = '/render/html';
+						// POST /image — body: { html, width, height, selector, fileExtension }
+						const opts =
+							(this.getNodeParameter('imageHtmlOptions', i, {}) as IDataObject) ?? {};
+						wantsBinary = Boolean(opts.returnBinary);
+						binaryProp = (opts.binaryPropertyName as string) || 'data';
+
+						endpoint = '/image';
 						body.html = this.getNodeParameter('html', i) as string;
-						const cssVal = this.getNodeParameter('css', i, '') as string;
-						if (cssVal) body.css = cssVal;
-						Object.assign(body, common);
+						if (opts.width !== undefined) body.width = opts.width;
+						if (opts.height !== undefined) body.height = opts.height;
+						if (opts.selector) body.selector = opts.selector;
+						body.fileExtension = (opts.format as string) ?? 'png';
 					} else if (operation === 'renderBatch') {
-						endpoint = '/render/batch';
-						body.templateId = this.getNodeParameter('templateId', i) as string;
-						body.items = parseJson(
+						// POST /templates/:uid/batch-render — body: { variableSets, format, quality, concurrency, layout, layouts }
+						const opts =
+							(this.getNodeParameter('imageBatchOptions', i, {}) as IDataObject) ?? {};
+
+						endpoint = `/templates/${encodeURIComponent(
+							this.getNodeParameter('templateId', i) as string,
+						)}/batch-render`;
+
+						const rawItems = parseJson(
 							this.getNodeParameter('items', i),
 							'items',
 							this.getNode(),
-						) as IDataObject[];
-						Object.assign(body, common);
+						);
+						if (!Array.isArray(rawItems)) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'"Items" must be a JSON array of objects, each with a `variables` object.',
+								{ itemIndex: i },
+							);
+						}
+						// Map the node's items[].variables to the API's variableSets[].
+						body.variableSets = (rawItems as IDataObject[]).map((it) => {
+							if (it && typeof it === 'object' && 'variables' in it) {
+								return it.variables as IDataObject;
+							}
+							return it as IDataObject;
+						});
+						body.format = (opts.format as string) ?? 'png';
+						if (opts.quality !== undefined) body.quality = opts.quality;
+						if (opts.concurrency !== undefined) body.concurrency = opts.concurrency;
+						if (opts.layout) body.layout = opts.layout;
+						const layouts = splitCsv(opts.layouts);
+						if (layouts.length) body.layouts = layouts;
 					}
 				} else if (resource === 'gif') {
+					// POST /gif — body: { html | (template + variables), width, height, quality }
 					const opts = (this.getNodeParameter('gifOptions', i, {}) as IDataObject) ?? {};
 					const source = this.getNodeParameter('gifSource', i) as string;
-					endpoint = '/render/gif';
-					body.frames = parseJson(
-						this.getNodeParameter('frames', i),
-						'frames',
-						this.getNode(),
-					) as IDataObject[];
-					if (opts.width !== undefined) body.width = opts.width;
-					if (opts.height !== undefined) body.height = opts.height;
-					body.delay = opts.delay ?? 100;
-					body.loop = opts.loop ?? 0;
-					if (opts.quality !== undefined) body.quality = opts.quality;
-					if (source === 'template') {
-						body.templateId = this.getNodeParameter('gifTemplateId', i) as string;
-					} else {
-						body.html = this.getNodeParameter('gifHtml', i) as string;
-						const css = this.getNodeParameter('gifCss', i, '') as string;
-						if (css) body.css = css;
-					}
-				} else if (resource === 'pdf') {
-					const opts = (this.getNodeParameter('pdfOptions', i, {}) as IDataObject) ?? {};
 					wantsBinary = Boolean(opts.returnBinary);
 					binaryProp = (opts.binaryPropertyName as string) || 'data';
-					const source = this.getNodeParameter('pdfSource', i) as string;
-					endpoint = '/render/pdf';
-					body.pageFormat = opts.pageFormat ?? 'A4';
-					body.landscape = opts.landscape ?? false;
-					body.printBackground = opts.printBackground ?? true;
-					body.margin = opts.margin ?? '0';
+
+					endpoint = '/gif';
+					if (opts.width !== undefined) body.width = opts.width;
+					if (opts.height !== undefined) body.height = opts.height;
+					body.quality = (opts.quality as string) ?? 'medium';
+
 					if (source === 'template') {
-						body.templateId = this.getNodeParameter('pdfTemplateId', i) as string;
+						body.template = this.getNodeParameter('gifTemplateId', i) as string;
 						body.variables = parseJson(
-							this.getNodeParameter('pdfVariables', i, {}),
-							'pdfVariables',
+							this.getNodeParameter('gifVariables', i, {}),
+							'gifVariables',
 							this.getNode(),
 						) as IDataObject;
 					} else {
-						body.html = this.getNodeParameter('pdfHtml', i) as string;
+						body.html = this.getNodeParameter('gifHtml', i) as string;
 					}
+				} else if (resource === 'pdf') {
+					// POST /templates/:uid/render with format:"pdf" — body: { variables, format, width, height }
+					const opts = (this.getNodeParameter('pdfOptions', i, {}) as IDataObject) ?? {};
+					wantsBinary = Boolean(opts.returnBinary);
+					binaryProp = (opts.binaryPropertyName as string) || 'data';
+
+					endpoint = `/templates/${encodeURIComponent(
+						this.getNodeParameter('pdfTemplateId', i) as string,
+					)}/render`;
+					body.variables = parseJson(
+						this.getNodeParameter('pdfVariables', i, {}),
+						'pdfVariables',
+						this.getNode(),
+					) as IDataObject;
+					body.format = 'pdf';
+					if (isPositive(opts.width)) body.width = opts.width;
+					if (isPositive(opts.height)) body.height = opts.height;
 				} else if (resource === 'template') {
 					method = 'GET';
 					if (operation === 'get') {
-						endpoint = `/templates/${this.getNodeParameter('templateId', i) as string}`;
+						endpoint = `/templates/${encodeURIComponent(
+							this.getNodeParameter('templateId', i) as string,
+						)}`;
 					} else if (operation === 'list') {
 						endpoint = '/templates';
 					}
@@ -610,7 +704,7 @@ export class Pictify implements INodeType {
 					url: endpoint,
 					json: true,
 					headers: {
-						'User-Agent': 'n8n-nodes-pictify/0.1.0',
+						'User-Agent': 'n8n-nodes-pictify/1.0.0',
 					},
 				};
 				if (method !== 'GET') {
@@ -675,11 +769,23 @@ function parseJson(value: unknown, fieldName: string, node: INode): unknown {
 	}
 }
 
+function splitCsv(value: unknown): string[] {
+	if (!value) return [];
+	return String(value)
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
+function isPositive(value: unknown): boolean {
+	return typeof value === 'number' && value > 0;
+}
+
 function pickRenderUrl(response: IDataObject): string | undefined {
+	// /image and /gif both ultimately expose a URL; template renders nest it in results[].
 	if (typeof response.url === 'string') return response.url;
-	if (typeof response.imageUrl === 'string') return response.imageUrl;
-	if (typeof response.gifUrl === 'string') return response.gifUrl;
-	if (typeof response.pdfUrl === 'string') return response.pdfUrl;
+	const gif = response.gif as IDataObject | undefined;
+	if (gif && typeof gif.url === 'string') return gif.url;
 	const results = response.results as IDataObject[] | undefined;
 	if (Array.isArray(results) && results.length > 0 && typeof results[0].url === 'string') {
 		return results[0].url as string;
