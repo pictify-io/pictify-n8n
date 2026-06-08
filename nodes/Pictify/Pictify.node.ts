@@ -17,6 +17,7 @@ export class Pictify implements INodeType {
 		icon: 'file:pictify.svg',
 		group: ['transform'],
 		version: 1,
+		usableAsTool: true,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description: 'Generate images, GIFs, and PDFs from HTML templates with Pictify',
 		defaults: {
@@ -34,7 +35,7 @@ export class Pictify implements INodeType {
 			baseURL: '={{$credentials.baseUrl}}',
 			headers: {
 				'Content-Type': 'application/json',
-				'User-Agent': 'n8n-nodes-pictify/1.0.0',
+				'User-Agent': 'n8n-nodes-pictify/1.0.2',
 			},
 		},
 		properties: [
@@ -704,7 +705,7 @@ export class Pictify implements INodeType {
 					url: endpoint,
 					json: true,
 					headers: {
-						'User-Agent': 'n8n-nodes-pictify/1.0.0',
+						'User-Agent': 'n8n-nodes-pictify/1.0.2',
 					},
 				};
 				if (method !== 'GET') {
