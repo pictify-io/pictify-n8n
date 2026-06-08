@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-pictify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "n8n community node for Pictify — generate images, GIFs, and PDFs from HTML templates",
   "keywords": [
     "n8n-community-node-package",
